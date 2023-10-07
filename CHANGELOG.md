@@ -28,6 +28,7 @@
 
 - [#8714](https://github.com/blockscout/blockscout/pull/8714) - Fix sourcify check 
 - [#8708](https://github.com/blockscout/blockscout/pull/8708) - CoinBalanceHistory tab: show also tx with gasPrice & gasUsed > 0
+- [#8707](https://github.com/blockscout/blockscout/pull/8707) - Fix native coin exchange rate with `EXCHANGE_RATES_COINGECKO_COIN_ID`
 - [#8706](https://github.com/blockscout/blockscout/pull/8706) - Add address name updating on contract re-verification
 - [#8705](https://github.com/blockscout/blockscout/pull/8705) - Fix sourcify enabled flag
 - [#8695](https://github.com/blockscout/blockscout/pull/8695) - Don't override internal transaction error if it's present already
