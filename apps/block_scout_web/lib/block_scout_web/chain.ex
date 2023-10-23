@@ -17,8 +17,8 @@ defmodule BlockScoutWeb.Chain do
 
   import Explorer.Helper, only: [parse_integer: 1]
 
-  alias Explorer.Account.{TagAddress, TagTransaction, WatchlistAddress}
   alias Ecto.Association.NotLoaded
+  alias Explorer.Account.{TagAddress, TagTransaction, WatchlistAddress}
   alias Explorer.Chain.Block.Reward
 
   alias Explorer.Chain.{
@@ -637,6 +637,9 @@ defmodule BlockScoutWeb.Chain do
     %{"id" => msg_id}
   end
 
+  @spec paging_params_with_fiat_value(Explorer.Chain.Address.CurrentTokenBalance.t()) :: %{
+          required(String.t()) => Decimal.t() | non_neg_integer() | nil
+        }
   def paging_params_with_fiat_value(%CurrentTokenBalance{id: id, value: value} = ctb) do
     %{"fiat_value" => ctb.fiat_value, "value" => value, "id" => id}
   end

@@ -5,8 +5,6 @@ defmodule Explorer.Chain.Transaction do
 
   require Logger
 
-  # import Ecto.Query, only: [from: 2, preload: 3, subquery: 1, where: 3]
-
   alias ABI.FunctionSelector
 
   alias Ecto.Association.NotLoaded
@@ -1247,7 +1245,8 @@ defmodule Explorer.Chain.Transaction do
     paging_options = Keyword.get(options, :paging_options, Chain.default_paging_options())
 
     case Application.get_env(:block_scout_web, BlockScoutWeb.Chain)[:has_emission_funds] &&
-           Keyword.get(options, :direction) == :from &&
+           Keyword.get(options, :direction) != :from &&
+           Reward.address_has_rewards?(address_hash) &&
            Reward.get_validator_payout_key_by_mining_from_db(address_hash, options) do
       %{payout_key: block_miner_payout_address}
       when not is_nil(block_miner_payout_address) and address_hash == block_miner_payout_address ->
@@ -1371,7 +1370,6 @@ defmodule Explorer.Chain.Transaction do
     |> address_to_transactions_tasks(options, old_ui?)
     |> wait_for_address_transactions()
     |> Enum.sort(compare_custom_sorting(Keyword.get(options, :sorting, [])))
-    # |> Enum.sort(&{&1.block_number, &1.index}, &>=/2)
     |> Enum.dedup_by(& &1.hash)
     |> Enum.take(paging_options.page_size)
   end
@@ -1389,6 +1387,12 @@ defmodule Explorer.Chain.Transaction do
     |> Enum.map(fn query -> Task.async(fn -> Chain.select_repo(options).all(query) end) end)
   end
 
+  @doc """
+  Returns the address to transactions tasks query based on provided options.
+  Boolean `only_mined?` argument specifies if only mined transactions should be returned,
+  boolean `old_ui?` argument specifies if the query is for the old UI, i.e. is query dynamically sorted or no.
+  """
+  @spec address_to_transactions_tasks_query(keyword, boolean, boolean) :: Ecto.Query.t()
   def address_to_transactions_tasks_query(options, only_mined? \\ false, old_ui? \\ true)
 
   def address_to_transactions_tasks_query(options, only_mined?, true) do
@@ -1409,6 +1413,11 @@ defmodule Explorer.Chain.Transaction do
     fetch_transactions_with_custom_sorting(paging_options, from_block, to_block, sorting_options)
   end
 
+  @doc """
+  Waits for the address transactions tasks to complete and returns the transactions flattened
+  in case of success or raises an error otherwise.
+  """
+  @spec wait_for_address_transactions([Task.t()]) :: [__MODULE__.t()]
   def wait_for_address_transactions(tasks) do
     tasks
     |> Task.yield_many(:timer.seconds(20))
@@ -1471,6 +1480,13 @@ defmodule Explorer.Chain.Transaction do
     end
   end
 
+  @doc """
+  Creates a query to fetch transactions taking into account paging_options (possibly nil),
+  from_block (may be nil), to_block (may be nil) and boolean `with_pending?` that indicates if pending transactions should be included
+  into the query.
+  """
+  @spec fetch_transactions(PagingOptions.t() | nil, non_neg_integer | nil, non_neg_integer | nil, boolean()) ::
+          Ecto.Query.t()
   def fetch_transactions(paging_options \\ nil, from_block \\ nil, to_block \\ nil, with_pending? \\ false) do
     __MODULE__
     |> order_for_transactions(with_pending?)
@@ -1485,6 +1501,16 @@ defmodule Explorer.Chain.Transaction do
     asc: :hash
   ]
 
+  @doc """
+  Creates a query to fetch transactions taking into account paging_options (possibly nil),
+  from_block (may be nil), to_block (may be nil) and sorting_params.
+  """
+  @spec fetch_transactions_with_custom_sorting(
+          PagingOptions.t() | nil,
+          non_neg_integer | nil,
+          non_neg_integer | nil,
+          SortingHelper.sorting_params()
+        ) :: Ecto.Query.t()
   def fetch_transactions_with_custom_sorting(paging_options, from_block, to_block, sorting) do
     query = from(transaction in __MODULE__)
 
@@ -1509,6 +1535,10 @@ defmodule Explorer.Chain.Transaction do
     |> order_by([transaction], desc: transaction.block_number, desc: transaction.index)
   end
 
+  @doc """
+  Updates the provided query with necessary `where`s and `limit`s to take into account paging_options (may be nil).
+  """
+  @spec handle_paging_options(Ecto.Query.t() | atom, nil | Explorer.PagingOptions.t()) :: Ecto.Query.t()
   def handle_paging_options(query, nil), do: query
 
   def handle_paging_options(query, %PagingOptions{key: nil, page_size: nil}), do: query
@@ -1519,6 +1549,10 @@ defmodule Explorer.Chain.Transaction do
     |> limit(^paging_options.page_size)
   end
 
+  @doc """
+  Updates the provided query with necessary `where`s to take into account paging_options.
+  """
+  @spec page_transaction(Ecto.Query.t() | atom, Explorer.PagingOptions.t()) :: Ecto.Query.t()
   def page_transaction(query, %PagingOptions{key: nil}), do: query
 
   def page_transaction(query, %PagingOptions{is_pending_tx: true} = options),
@@ -1546,6 +1580,10 @@ defmodule Explorer.Chain.Transaction do
     where(query, [transaction], transaction.index < ^index)
   end
 
+  @doc """
+  Updates the provided query with necessary `where`s to take into account paging_options.
+  """
+  @spec page_pending_transaction(Ecto.Query.t() | atom, Explorer.PagingOptions.t()) :: Ecto.Query.t()
   def page_pending_transaction(query, %PagingOptions{key: nil}), do: query
 
   def page_pending_transaction(query, %PagingOptions{key: {inserted_at, hash}}) do
@@ -1559,6 +1597,11 @@ defmodule Explorer.Chain.Transaction do
     )
   end
 
+  @doc """
+  Adds a `has_token_transfers` field to the query via `select_merge` if second argument is `true` and returns
+  the query untouched otherwise.
+  """
+  @spec put_has_token_transfers_to_tx(Ecto.Query.t() | atom, boolean) :: Ecto.Query.t()
   def put_has_token_transfers_to_tx(query, true), do: query
 
   def put_has_token_transfers_to_tx(query, false) do
@@ -1573,10 +1616,20 @@ defmodule Explorer.Chain.Transaction do
     )
   end
 
+  @doc """
+  Return the dynamic that calculates the fee for transactions.
+  """
+  @spec dynamic_fee :: struct()
   def dynamic_fee do
     dynamic([tx], tx.gas_price * fragment("COALESCE(?, ?)", tx.gas_used, tx.gas))
   end
 
+  @doc """
+  Returns next page params based on the provided transaction.
+  """
+  @spec address_transactions_next_page_params(Explorer.Chain.Transaction.t()) :: %{
+          required(String.t()) => Decimal.t() | Wei.t() | non_neg_integer | DateTime.t() | Hash.t()
+        }
   def address_transactions_next_page_params(
         %__MODULE__{block_number: block_number, index: index, inserted_at: inserted_at, hash: hash, value: value} = tx
       ) do

@@ -4,7 +4,7 @@ defmodule BlockScoutWeb.PagingHelper do
   """
   import Explorer.Chain, only: [string_to_transaction_hash: 1]
   alias Explorer.Chain.Transaction
-  alias Explorer.PagingOptions
+  alias Explorer.{PagingOptions, SortingHelper}
 
   @page_size 50
   @default_paging_options %PagingOptions{page_size: @page_size + 1}
@@ -171,6 +171,7 @@ defmodule BlockScoutWeb.PagingHelper do
 
   def search_query(_), do: []
 
+  @spec tokens_sorting(%{required(String.t()) => String.t()}) :: [{:sorting, SortingHelper.sorting_params()}]
   def tokens_sorting(%{"sort" => sort_field, "order" => order}) do
     [sorting: do_tokens_sorting(sort_field, order)]
   end
@@ -185,6 +186,7 @@ defmodule BlockScoutWeb.PagingHelper do
   defp do_tokens_sorting("circulating_market_cap", "desc"), do: [desc_nulls_last: :circulating_market_cap]
   defp do_tokens_sorting(_, _), do: []
 
+  @spec smart_contracts_sorting(%{required(String.t()) => String.t()}) :: [{:sorting, SortingHelper.sorting_params()}]
   def smart_contracts_sorting(%{"sort" => sort_field, "order" => order}) do
     [sorting: do_smart_contracts_sorting(sort_field, order)]
   end
@@ -197,6 +199,9 @@ defmodule BlockScoutWeb.PagingHelper do
   defp do_smart_contracts_sorting("txs_count", "desc"), do: [{:desc_nulls_last, :transactions_count, :address}]
   defp do_smart_contracts_sorting(_, _), do: []
 
+  @spec address_transactions_sorting(%{required(String.t()) => String.t()}) :: [
+          {:sorting, SortingHelper.sorting_params()}
+        ]
   def address_transactions_sorting(%{"sort" => sort_field, "order" => order}) do
     [sorting: do_address_transaction_sorting(sort_field, order)]
   end

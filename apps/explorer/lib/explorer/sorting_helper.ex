@@ -3,10 +3,11 @@ defmodule Explorer.SortingHelper do
   Module that order and paginate queries dynamically based on default and provided sorting parameters.
   Example of sorting parameters:
   ```
-  [{:asc, :fetched_coin_balance, :address}, desc: :id]
+  [{:asc, :fetched_coin_balance, :address}, {:dynamic, :contract_code_size, :desc, dynamic([t], fragment(LENGTH(?), t.contract_source_code))}, desc: :id]
   ```
-  First list entry specify joined address table column as a column to order by, second entry specifies
-  own column name to order by.
+  First list entry specify joined address table column as a column to order by and paginate, second entry
+  specifies name of a key in paging_options and arbitrary dynamic that will be used in ordering and pagination,
+  third entry specifies own column name to order by and paginate.
   """
   require Explorer.SortingHelper
 
@@ -17,8 +18,14 @@ defmodule Explorer.SortingHelper do
   @typep ordering :: :asc | :asc_nulls_first | :asc_nulls_last | :desc | :desc_nulls_first | :desc_nulls_last
   @typep column :: atom
   @typep binding :: atom
-  @type sorting_params :: [{ordering, column} | {ordering, column, binding}]
+  @type sorting_params :: [
+          {ordering, column} | {ordering, column, binding} | {:dynamic, column, ordering, Ecto.Query.dynamic_expr()}
+        ]
 
+  @doc """
+  Applies sorting to query based on default sorting params and sorting params from the client,
+  these params merged keeping provided one over default one.
+  """
   @spec apply_sorting(Ecto.Query.t(), sorting_params, sorting_params) :: Ecto.Query.t()
   def apply_sorting(query, sorting, default_sorting) when is_list(sorting) and is_list(default_sorting) do
     sorting |> sorting_with_defaults(default_sorting) |> apply_as(query)
@@ -44,7 +51,11 @@ defmodule Explorer.SortingHelper do
     end)
   end
 
-  # @spec page_with_sorting(sorting_params, sorting_params) :: nil | (nil | maybe_improper_list | map -> any)
+  @doc """
+  Page the query based on paging options, default sorting params and sorting params from the client,
+  these params merged keeping provided one over default one.
+  """
+  @spec page_with_sorting(Ecto.Query.t(), PagingOptions.t(), sorting_params, sorting_params) :: Ecto.Query.t()
   def page_with_sorting(query, %PagingOptions{key: key, page_size: page_size}, sorting, default_sorting)
       when not is_nil(key) do
     sorting
@@ -88,9 +99,10 @@ defmodule Explorer.SortingHelper do
   # defp apply_column(column) do
   #   dynamic([t], field(t, ^column))
   # end
-  # but at the moment using such dynamic in comparisons lead ecto to
-  # failure in type inference from scheme and it expects some default types
-  # like string instead of `Hash.Address`
+  # but ecto does not support dynamic fields like that,
+  # related issue: https://github.com/elixir-ecto/ecto/issues/4186
+  # possible solution is to define macro that will generate case and replace some placeholder value in
+  # dynamic based on which case clause we get, but now it seems like overengineering
   defp page_by_column(key, {:dynamic, key_name, dynamic}, :desc_nulls_last, next_column) do
     case key[key_name] do
       nil ->

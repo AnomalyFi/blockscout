@@ -280,7 +280,10 @@ defmodule Explorer.Chain.Block.Reward do
     end
   end
 
-  @spec address_has_rewards?(Address.t()) :: boolean()
+  @doc """
+  Checks if an address has rewards
+  """
+  @spec address_has_rewards?(Hash.Address.t()) :: boolean()
   def address_has_rewards?(address_hash) do
     query = from(r in __MODULE__, where: r.address_hash == ^address_hash)
 

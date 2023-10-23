@@ -4,6 +4,8 @@
 
 ### Features
 
+- [#8611](https://github.com/blockscout/blockscout/pull/8611) - Implement sorting of smart contracts, address transactions
+
 ### Fixes
 
 - [#8724](https://github.com/blockscout/blockscout/pull/8724) - Fix flaky account notifier test

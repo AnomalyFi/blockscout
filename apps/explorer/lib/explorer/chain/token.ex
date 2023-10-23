@@ -23,8 +23,8 @@ defmodule Explorer.Chain.Token do
   import Ecto.{Changeset, Query}
 
   alias Ecto.Changeset
-  alias Explorer.{Chain, PagingOptions, SortingHelper}
-  alias Explorer.Chain.{Address, Hash, Token, Search}
+  alias Explorer.{Chain, SortingHelper}
+  alias Explorer.Chain.{Address, Hash, Search, Token}
   alias Explorer.SmartContract.Helper
 
   @default_sorting [
@@ -206,5 +206,9 @@ defmodule Explorer.Chain.Token do
 
   defp apply_filter(query, token_types) when is_list(token_types) do
     from(t in query, where: t.type in ^token_types)
+  end
+
+  def get_by_contract_address_hash(hash, options) do
+    Chain.select_repo(options).get_by(__MODULE__, contract_address_hash: hash)
   end
 end
