@@ -37,11 +37,20 @@ services:
         RELEASE_VERSION: 5.3.1
     links:
       - db:database
-    environment:
-        ETHEREUM_JSONRPC_HTTP_URL: http://host.docker.internal:8545/
-        ETHEREUM_JSONRPC_TRACE_URL: http://host.docker.internal:8545/
-        ETHEREUM_JSONRPC_WS_URL: ws://host.docker.internal:8545/
-        CHAIN_ID: '1337'
+    environment:    
+      SUBNETWORK: 'NodeKit Ember'
+      ETHEREUM_JSONRPC_VARIANT: 'geth'
+      ETHEREUM_JSONRPC_HTTP_URL: http://ember.nodekit.xyz:9545/
+      ETHEREUM_JSONRPC_TRACE_URL: http://ember.nodekit.xyz:9545/
+      ETHEREUM_JSONRPC_WS_URL: ws://ember.nodekit.xyz:9546/
+      ECTO_USE_SSL: 'false'
+      SECRET_KEY_BASE: '56NtB48ear7+wMSf0IQuWDAAazhpb31qyc7GiyspBP2vh7t5zlCsF5QDv76chXeN'
+      CHAIN_ID: '45200'
+      API_V2_ENABLED: 'true'
+      MIX_ENV: 'prod'
+      INDEXER_CATCHUP_BLOCK_INTERVAL: '2s'
+      INDEXER_DISABLE_INTERNAL_TRANSACTIONS_FETCHER: 'true'
+      INDEXER_DISABLE_PENDING_TRANSACTIONS_FETCHER: 'true'
 
   visualizer:
     extends:
